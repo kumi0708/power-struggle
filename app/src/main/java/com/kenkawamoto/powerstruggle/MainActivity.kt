@@ -8,11 +8,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -57,11 +54,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.changedToDown
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -115,6 +109,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) {
     val live by Battle.state.collectAsState()
+    val sprites = rememberTugSprites()
     var demo by remember { mutableStateOf(previewScene in setOf("charging", "draining", "split")) }
     var demoRope by remember { mutableFloatStateOf(if (previewScene == "draining") -0.65f else 0.45f) }
     var showDetails by remember { mutableStateOf(false) }
@@ -157,6 +152,7 @@ private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) 
             Column(Modifier.fillMaxSize()) {
                 PlayerView(
                     PlayerSide(myFlow, rope, s.batteryLevel, s.peerBatteryLevel, s.currentMa),
+                    sprites = sprites,
                     connected = true, demo = demo, compact = true, onTap = tapMe,
                     bottomInset = statusInset,
                     modifier = Modifier.weight(1f).rotate(180f),
@@ -166,6 +162,7 @@ private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) 
                 PlayerView(
                     PlayerSide(otherFlow, -rope, s.peerBatteryLevel, s.batteryLevel, null,
                         label = s.partnerName ?: "相手のスマホ", pinkPlayer = true),
+                    sprites = sprites,
                     connected = true, demo = demo, compact = true, onTap = tapOther,
                     bottomInset = 0.dp,
                     modifier = Modifier.weight(1f),
@@ -174,7 +171,9 @@ private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) 
         } else {
             // Bottom-to-bottom phones: preserve the upstream face-to-face orientation.
             PlayerView(
-                PlayerSide(myFlow, rope, s.batteryLevel, s.peerBatteryLevel, s.currentMa),
+                PlayerSide(myFlow, rope, s.batteryLevel, s.peerBatteryLevel, s.currentMa,
+                    pinkPlayer = !demo && s.mode == Mode.TWO_PHONES && s.role == Role.PLAYER),
+                sprites = sprites,
                 connected = s.mode != Mode.NONE, demo = demo, compact = false, onTap = tapMe,
                 bottomInset = statusInset,
                 modifier = Modifier.fillMaxSize().rotate(if (faceUp) 0f else 180f),
@@ -207,6 +206,7 @@ private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) 
 @Composable
 private fun PlayerView(
     side: PlayerSide,
+    sprites: TugSprites,
     connected: Boolean,
     demo: Boolean,
     compact: Boolean,
@@ -221,14 +221,9 @@ private fun PlayerView(
     val accent by animateColorAsState(
         if (side.flow == Flow.OUT) Pink else playerColor, label = "powerAccent",
     )
-    var tapPulse by remember { mutableStateOf(false) }
     var tapCount by remember { mutableIntStateOf(0) }
-    val pull by animateFloatAsState(side.rope, spring(stiffness = Spring.StiffnessLow), label = "ropePull")
-    val bounce by animateFloatAsState(if (tapPulse) 1.035f else 1f,
-        spring(dampingRatio = Spring.DampingRatioMediumBouncy), label = "tapBounce")
-    val tap: () -> Unit = { onTap(); tapCount++; tapPulse = true }
+    val tap: () -> Unit = { onTap(); tapCount++ }
     val currentTap by rememberUpdatedState(tap)
-    LaunchedEffect(tapCount) { if (tapPulse) { delay(90); tapPulse = false } }
     val heading = when {
         !connected -> "でんりょく綱引き、はじめよう！"
         demo && side.flow == Flow.IN -> "あなたが優勢！"
@@ -288,16 +283,15 @@ private fun PlayerView(
                 contentAlignment = Alignment.Center,
             ) {
                 ArenaSparkles(accent, Modifier.fillMaxSize())
-                Image(
-                    painterResource(R.drawable.power_tug_girls),
-                    contentDescription = "青いリボンとピンクのリボンの2頭身の女の子が、電力の光るケーブルで綱引きしている",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxWidth().graphicsLayer {
-                        translationX = -pull * 14.dp.toPx()
-                        rotationZ = -pull * 2f
-                        scaleX = if (side.pinkPlayer) -bounce else bounce
-                        scaleY = bounce
-                    },
+                ChibiArena(
+                    sprites = sprites,
+                    rope = side.rope,
+                    pinkPlayer = side.pinkPlayer,
+                    connected = connected,
+                    energized = connected && side.flow != Flow.NONE,
+                    energyToPlayer = side.flow == Flow.IN,
+                    tapCount = tapCount,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
             TugMeter(side.rope, playerColor, short)

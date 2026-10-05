@@ -4,8 +4,11 @@
 
 This is [kumi0708's fork](https://github.com/kumi0708/power-struggle) of
 [kenkawakenkenke/power-struggle](https://github.com/kenkawakenkenke/power-struggle).
-Two chibi girls pull a glowing energy cable in a pastel Japanese game UI. Taps make the
-illustration bounce, and the tug meter follows the existing USB game state. The battery
+Two chibi girls pull a glowing energy cable in a pastel Japanese game UI. Each girl has
+separate hand-drawn pull poses, blinks and advantage/strain expressions. A continuous mesh
+animation adds torso/knee movement and hair/ribbon sway while keeping the feet planted.
+Taps accelerate the local pull, and the rope connects the animated hand grips. The tug meter
+follows the existing USB game state. The battery
 percentage and charging status in connected play still come from the device's battery readings.
 
 - Tap the illustration or **タップで引っぱる！** to pull.
@@ -13,11 +16,16 @@ percentage and charging status in connected play still come from the device's ba
   battery levels are sample values, and taps never trigger USB messages or power swaps.
   Connecting a real opponent automatically returns to live play.
 - The bottom-to-bottom, face-to-face orientation and the one-phone split mode are preserved.
+  In two-phone play, the referee is the blue girl and the player is the pink girl; each device
+  mirrors the scene as needed so its own girl matches the local tug meter.
 - **接続の詳細** contains Shizuku setup instructions and connection diagnostics.
 - The application ID is `com.kumi0708.powerstruggle`, so this fork can coexist with the original.
 
 The approved artwork and its generation prompt are in [`docs/art`](docs/art). The runtime
-PNG is in `app/src/main/res/drawable-nodpi/power_tug_girls.png`.
+atlases are `tug_emotes_atlas.png` and `tug_pink_pull_atlas.png` in
+`app/src/main/res/drawable-nodpi/`. Their source rectangles, planted-foot pivots and hand grips
+are registered in `TugAnimation.kt`; the generated PNGs are preserved intact.
+See [`the animation prompts`](docs/art/tug-animation-prompts.md) for the artwork instructions.
 
 <p align="center">
   <img src="docs/chibi-waiting.png" width="230" alt="Chibi girls on the connection screen">
