@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -41,37 +42,40 @@ private val Magic = Color(0xFFC56AE6)
 
 /** Adult character poses; original transparent artwork remains unchanged on disk. */
 private class SuccubusSprites(resources: Resources) {
-    class Frame(val bitmap: Bitmap, val feet: Offset, val battery: Offset, val mouth: Offset) {
+    class Frame(val bitmap: Bitmap, val feet: Offset, val cableTail: Offset, val usbTip: Offset, val upperRow: Boolean) {
         val vertices = FloatArray((SIP_COLUMNS + 1) * (SIP_ROWS + 1) * 2)
     }
     val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        textSize = 19f
+        textAlign = Paint.Align.CENTER
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+    }
     val frames: List<Frame>
 
     init {
-        val atlas = checkNotNull(BitmapFactory.decodeResource(resources, R.drawable.succubus_sip_atlas))
+        val atlas = checkNotNull(BitmapFactory.decodeResource(resources, R.drawable.succubus_usb_sip_atlas))
         val sx = atlas.width / 1143f
         val sy = atlas.height / 1376f
         val anchors = listOf(
-            floatArrayOf(333f, 683f, 380f, 275f, 329f, 138f),
-            floatArrayOf(270f, 683f, 342f, 275f, 289f, 138f),
-            floatArrayOf(335f, 685f, 375f, 273f, 329f, 135f),
-            floatArrayOf(272f, 686f, 340f, 277f, 292f, 140f),
+            floatArrayOf(339f, 687f, 128f, 568f, 310f, 140f),
+            floatArrayOf(282f, 687f, 71f, 568f, 253f, 140f),
+            floatArrayOf(339f, 683f, 128f, 563f, 310f, 135f),
+            floatArrayOf(282f, 683f, 71f, 563f, 253f, 135f),
         )
         frames = List(4) { i ->
-            // The raised wing in the lower-left pose extends past the nominal cell edge.
-            // Give it the full gutter and keep its tip out of the lower-right pose.
-            val left = if (i % 2 == 0) 0 else if (i == 3) 600 else 571
-            val rightEdge = if (i % 2 != 0) 1143 else if (i == 2) 600 else 571
+            val left = if (i % 2 == 0) 0 else 571
+            val rightEdge = if (i % 2 != 0) 1143 else 571
             val x = (left * sx).toInt()
             val right = (rightEdge * sx).toInt()
-            // The lower horns start on row 687; put the boundary in the transparent gutter.
-            val y = if (i < 2) 0 else (686 * sy).toInt()
-            val bottom = if (i < 2) (686 * sy).toInt() else atlas.height
+            // The generated row boundary has two pixels of adjacent horn/shoe tips.
+            // Register clean source regions rather than rendering those stray fragments.
+            val y = if (i < 2) 0 else (692 * sy).toInt()
+            val bottom = if (i < 2) (687 * sy).toInt() else atlas.height
             val a = anchors[i]
-            val shiftX = if (i == 3) 29f else 0f
             Frame(Bitmap.createBitmap(atlas, x, y, right - x, bottom - y),
-                Offset((a[0] - shiftX) * sx, a[1] * sy),
-                Offset((a[2] - shiftX) * sx, a[3] * sy), Offset((a[4] - shiftX) * sx, a[5] * sy))
+                Offset(a[0] * sx, a[1] * sy), Offset(a[2] * sx, a[3] * sy), Offset(a[4] * sx, a[5] * sy), i < 2)
         }
     }
 }
@@ -85,7 +89,7 @@ internal fun SuccubusArena(energized: Boolean, energyToPlayer: Boolean, modifier
     var frameTime by remember { mutableLongStateOf(started) }
     LaunchedEffect(Unit) { while (true) withFrameNanos { frameTime = it } }
     Canvas(modifier.semantics {
-        contentDescription = "成人のサキュバスがストローで電力をチューチュー吸う。まばたきし、髪と翼が揺れる"
+        contentDescription = "成人のサキュバスがスマホにつながったUSB-Cケーブルの先から電力をすすっている。髪と翼が揺れる"
     }) {
         val t = (frameTime - started).coerceAtLeast(0L) / 1_000_000_000f
         // Two small sips, an eyes-closed sip, a wink, then a relaxed pause. No input needed.
@@ -109,27 +113,22 @@ internal fun SuccubusArena(energized: Boolean, energyToPlayer: Boolean, modifier
             scale(scale, scale, pivot = Offset.Zero)
         }) {
             drawOval(Magic.copy(alpha = 0.12f), Offset(245f, 775f), Size(270f, 22f))
-            val battery = origin + pose.deform(frame.battery) * characterScale
-            val mouth = origin + pose.deform(frame.mouth) * characterScale
-            val source = Offset(70f, 480f)
-            if (energized) drawSiphon(source, battery, t, energyToPlayer)
+            val tail = origin + pose.deform(frame.cableTail) * characterScale
+            val tip = origin + pose.deform(frame.usbTip) * characterScale
+            // The phone's port follows the free USB-C plug already drawn in each pose.
+            drawUsbPhone(tail, sprites.labelPaint)
             drawSipCharacter(frame, pose, origin, characterScale, sprites.paint)
             if (energized) {
-                // Particles travel along the prop's straw, without obscuring the face.
-                val bend = Offset(battery.x + 9f, mouth.y + 58f)
-                repeat(5) { i ->
-                    val progress = (t * 0.72f + i / 5f) % 1f
-                    val u = if (energyToPlayer) progress else 1f - progress
-                    val p = battery * ((1f - u) * (1f - u)) + bend * (2f * (1f - u) * u) + mouth * (u * u)
-                    drawCircle(Magic.copy(alpha = 0.23f), 8f, p)
-                    drawCircle(Color(0xFFFFE4FF), 2.6f, p)
-                }
+                val c1 = origin + pose.deform(frame.cableTail + Offset(-35f, -115f)) * characterScale
+                val c2 = origin + pose.deform(frame.usbTip + Offset(-110f, 175f)) * characterScale
+                val housing = origin + pose.deform(frame.usbTip + Offset(-37f, 13f)) * characterScale
+                drawUsbEnergy(tail, c1, c2, housing, tip, t, energyToPlayer)
                 val pulse = (1f + sin(t * 6.5f)) / 2f
-                drawCircle(Magic.copy(alpha = 0.18f), 18f + pulse * 9f, battery)
+                drawCircle(Magic.copy(alpha = 0.18f), 13f + pulse * 8f, tip)
                 repeat(4) { i ->
                     val angle = t * 0.8f + i * PI.toFloat() / 2
-                    val p = battery + Offset(cos(angle) * 46f, sin(angle) * 36f)
-                    drawMagicHeart(p, 5f + pulse * 2f, Magic.copy(alpha = 0.6f))
+                    val p = tip + Offset(cos(angle) * 31f, sin(angle) * 21f)
+                    drawMagicHeart(p, 3.5f + pulse * 1.5f, Magic.copy(alpha = 0.55f))
                 }
             }
         }
@@ -169,31 +168,49 @@ private fun DrawScope.drawSipCharacter(frame: SuccubusSprites.Frame, pose: SipPo
         val native = canvas.nativeCanvas
         native.withTranslation(origin.x, origin.y) {
             scale(scale, scale)
+            if (frame.upperRow) {
+                // A faint tip from the next row lies between the soles, outside this pose.
+                // Clip only that empty gap, retaining the boots' complete lower outlines.
+                clipOutRect(frame.feet.x - 12f, frame.feet.y - 7f,
+                    frame.feet.x + 12f, frame.bitmap.height + 8f)
+            }
             drawBitmapMesh(frame.bitmap, SIP_COLUMNS, SIP_ROWS, frame.vertices, 0, null, 0, paint)
         }
     }
 }
 
-private fun DrawScope.drawSiphon(source: Offset, battery: Offset, t: Float, inward: Boolean) {
-    val bend = Offset(source.x + 85f, source.y - 90f)
-    val path = Path().apply { moveTo(source.x, source.y); quadraticTo(bend.x, bend.y, battery.x, battery.y) }
-    drawPath(path, Magic.copy(alpha = 0.13f), style = Stroke(23f, cap = StrokeCap.Round))
-    drawPath(path, Magic.copy(alpha = 0.38f), style = Stroke(3.5f, cap = StrokeCap.Round))
-    repeat(8) { i ->
-        val progress = (t * 0.45f + i / 8f) % 1f
+private fun DrawScope.drawUsbPhone(port: Offset, labelPaint: Paint) {
+    withTransform({ rotate(-18f, pivot = port) }) {
+        val left = port.x - 58f
+        val top = port.y - 2f
+        drawRoundRect(Color(0xFF42334F), Offset(left, top), Size(116f, 146f), CornerRadius(17f))
+        drawRoundRect(Color(0xFF7B5396), Offset(left + 8f, top + 10f), Size(100f, 126f), CornerRadius(10f))
+        drawRoundRect(Color(0xFFEAD7FF), Offset(port.x - 22f, top + 31f), Size(44f, 49f), CornerRadius(6f))
+        drawRoundRect(Magic, Offset(port.x - 17f, top + 43f), Size(34f, 32f), CornerRadius(3f))
+        drawLine(Color(0xFFEAD7FF), Offset(port.x - 7f, top + 27f), Offset(port.x + 7f, top + 27f), 3f, StrokeCap.Round)
+        drawIntoCanvas { it.nativeCanvas.drawText("USB-C", port.x, top + 112f, labelPaint) }
+        // The generated connector's silver tip meets this port; there is no added cable join.
+        drawRoundRect(Color(0xFF20172B), Offset(port.x - 10f, top - 1f), Size(20f, 5f), CornerRadius(2f))
+    }
+}
+
+private fun DrawScope.drawUsbEnergy(source: Offset, c1: Offset, c2: Offset, housing: Offset, tip: Offset, t: Float, inward: Boolean) {
+    val path = Path().apply {
+        moveTo(source.x, source.y); cubicTo(c1.x, c1.y, c2.x, c2.y, housing.x, housing.y)
+        lineTo(tip.x, tip.y)
+    }
+    drawPath(path, Magic.copy(alpha = 0.12f), style = Stroke(17f, cap = StrokeCap.Round))
+    repeat(10) { i ->
+        val progress = (t * 0.42f + i / 10f) % 1f
         val u = if (inward) progress else 1f - progress
-        val p = source * ((1f - u) * (1f - u)) + bend * (2f * (1f - u) * u) + battery * (u * u)
-        drawCircle(Magic.copy(alpha = 0.24f), 10f, p)
-        drawCircle(Color.White, 3f, p)
+        val p = if (u > 0.9f) housing + (tip - housing) * ((u - 0.9f) / 0.1f) else {
+            val along = u / 0.9f
+            val v = 1f - along
+            source * (v * v * v) + c1 * (3f * v * v * along) + c2 * (3f * v * along * along) + housing * (along * along * along)
+        }
+        drawCircle(Magic.copy(alpha = 0.24f), 7f, p)
+        drawCircle(Color.White, 2.6f, p)
     }
-    drawCircle(Magic.copy(alpha = 0.1f), 36f + sin(t * 4f) * 4f, source)
-    drawCircle(Magic.copy(alpha = 0.35f), 19f, source)
-    val bolt = Path().apply {
-        moveTo(source.x + 3f, source.y - 13f); lineTo(source.x - 9f, source.y + 2f)
-        lineTo(source.x - 1f, source.y + 2f); lineTo(source.x - 3f, source.y + 13f)
-        lineTo(source.x + 9f, source.y - 2f); lineTo(source.x + 1f, source.y - 2f); close()
-    }
-    drawPath(bolt, Color.White)
 }
 
 private fun DrawScope.drawMagicHeart(center: Offset, radius: Float, color: Color) {

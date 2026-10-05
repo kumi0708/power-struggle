@@ -1,7 +1,9 @@
 # Succubus sipping animation — v0.4
 
 Mode: built-in `image_gen` (imagegen skill), generate, transparent background.
-Runtime asset: `app/src/main/res/drawable-nodpi/succubus_sip_atlas.png`.
+Original runtime asset (v0.4): `app/src/main/res/drawable-nodpi/succubus_sip_atlas.png`.
+Archived source: `docs/art/succubus-sip-v0.4.png`. The current mode uses the USB-C revision
+documented in `succubus-usb-sip.prompt.md`.
 The selected 1143 × 1376 PNG is copied intact; `SuccubusAnimation.kt` registers four
 runtime source rectangles and animates a bitmap mesh. It depicts an adult fantasy
 character sipping battery energy through a straw.

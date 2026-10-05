@@ -11,8 +11,8 @@ android {
         applicationId = "com.kumi0708.powerstruggle"
         minSdk = 33
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.4"
+        versionCode = 5
+        versionName = "0.5"
     }
 
     buildFeatures {

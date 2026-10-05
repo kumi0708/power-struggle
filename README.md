@@ -20,7 +20,7 @@ percentage and charging status in connected play still come from the device's ba
   mirrors the scene as needed so its own girl matches the local tug meter.
 - **接続の詳細** contains Shizuku setup instructions and connection diagnostics.
 - Choose **サキュバス ♡** for an alternate viewing mode: an adult fantasy character
-  continuously sips glowing battery energy through a straw, with four expression poses,
+  continuously sips glowing electricity from a USB-C connector, with four expression poses,
   breathing and animated hair/wings. No tapping is needed. **チューチューを眺める** starts
   a clearly labeled local preview; connected play shows the actual direction of power flow.
   This visual mode does not send game taps or request automatic power swaps. Switch back to
@@ -33,8 +33,9 @@ atlases are `tug_emotes_atlas.png` and `tug_pink_pull_atlas.png` in
 `app/src/main/res/drawable-nodpi/`. Their source rectangles, planted-foot pivots and hand grips
 are registered in `TugAnimation.kt`; the generated PNGs are preserved intact.
 See [`the animation prompts`](docs/art/tug-animation-prompts.md) for the artwork instructions.
-The alternate-mode artwork is `succubus_sip_atlas.png`; its generation instructions are in
-[`the succubus prompt`](docs/art/succubus-sip.prompt.md).
+The alternate-mode artwork is `succubus_usb_sip_atlas.png`. A thick charging cable connects
+the animated USB-C tip near her lips to a phone with a visible USB port. Its generation
+instructions are in [`the USB-C succubus prompt`](docs/art/succubus-usb-sip.prompt.md).
 
 <p align="center">
   <img src="docs/chibi-waiting.png" width="230" alt="Chibi girls on the connection screen">

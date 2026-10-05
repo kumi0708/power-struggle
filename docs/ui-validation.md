@@ -1,5 +1,28 @@
 # Chibi UI validation — 2026-10-05
 
+## USB-C sipping artwork — v0.5
+
+The succubus now holds a recognizable metal USB-C connector at her mouth. A thick USB
+cable leads to the second connector, which plugs into a drawn phone. The phone's port follows
+that connector through the same pose deformation, keeping the connection together during
+the animation. The small bottle and drinking straw have been removed. Electrical particles
+travel from the phone along the cable to the mouth-side tip, reversing for outflow.
+
+The four new expression poses retain the adult character's face, violet hair, horns and
+wings, with a covered purple dress. The original PNG is archived in
+`docs/art/succubus-sip-v0.4.png`; the new transparent atlas and accepted edit prompt are saved.
+
+`assembleDebug lintDebug --max-workers=2 --no-daemon` passed with no errors and the three
+existing SDK/orientation warnings. API 36 host-GPU checks verified the hands-free loop,
+preview labels, stable sample batteries, tug controls after switching, mode persistence,
+Android Back, outflow labeling, both opposing halves, and absence of fatal app exceptions.
+The final visual capture also checked waiting and split layouts with the updated connector
+registration. The phone, cable, connector and facial expressions were visually inspected.
+
+The updated APK and native nine-second video are
+`output/PowerStruggle-usb-sip-v0.5-debug.apk` and `output/PowerStruggle-usb-sip-v0.5.mp4`.
+Real USB transfer on two physical phones remains untested.
+
 ## Alternate viewing mode — v0.4
 
 The mode selector adds a self-running adult succubus sipping battery energy through a
