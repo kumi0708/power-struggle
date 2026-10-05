@@ -1,5 +1,27 @@
 # Chibi UI validation — 2026-10-05
 
+## Approved reference and bottle animation — v0.7
+
+The user-provided four-pose character atlas is now the runtime asset, copied byte for byte
+(SHA-256 `26eacdc405337c96311b63cbe9601f056c109d4ccbbff90ab4d30691cc2d7c97`).
+The 1143 × 1376 PNG has alpha ranging from 0 to 255. Its corset outfit, long gloves,
+thigh-high boots, bottle and straw are preserved. The bottle/straw renderer registers the
+feet and prop positions for all expressions, adds continuous mesh movement, and animates
+energy in the existing charging direction. Screen labels now describe the bottle.
+The previous USB art is archived at `docs/art/succubus-usb-sip-v0.6.png`.
+
+`assembleDebug lintDebug --max-workers=2 --no-daemon` passed with no errors and the same
+three SDK/orientation warnings. API 36 host-GPU checks passed for hands-free playback,
+labeled simulation, stable sample battery levels, tug controls after switching, mode
+persistence across restart and Android Back, live battery restoration after leaving the
+preview, opposite-flow labeling, both opposing halves, and no fatal app exceptions.
+The nine-second recording (720 × 1600, 515 frames in 8.893 seconds) and the waiting/split
+screenshots were visually inspected for expression changes and intact character outlines.
+Transient emulator UI hierarchy failures were retried by the capture helper.
+
+Deliverables: `output/PowerStruggle-reference-v0.7-debug.apk` and
+`output/PowerStruggle-reference-v0.7.mp4`. Actual two-device USB transfer remains untested.
+
 ## Relaxed costume — v0.6
 
 The adult character's purple dress now has an open collar showing the neck/collarbones and

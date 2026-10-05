@@ -276,7 +276,7 @@ private fun PlayerView(
             if (!short) {
                 Text(if (succubus) "サキュバスの充電タイム" else "POWER STRUGGLE", color = Ink, fontWeight = FontWeight.Black,
                     fontSize = if (succubus) 23.sp else 25.sp, letterSpacing = if (succubus) 0.sp else 2.sp)
-                Text(if (succubus) "USB-Cから、でんりょくいただき♡" else "ふたりで、でんりょく綱引き。", color = Muted, fontSize = 13.sp,
+                Text(if (succubus) "でんりょく、ひとくちいただき♡" else "ふたりで、でんりょく綱引き。", color = Muted, fontSize = 13.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
             }
             VisualModeSelector(visualMode, onVisualMode, short)
@@ -295,8 +295,8 @@ private fun PlayerView(
                 fontSize = if (short) 16.sp else 21.sp, textAlign = TextAlign.Center)
             Text(
                 when {
-                    succubus && demo -> "USB-Cの先から、ずっとチューチュー♡"
-                    succubus && !connected -> "USB-Cからすするアニメーションをおためし"
+                    succubus && demo -> "小瓶から、ずっとチューチュー♡"
+                    succubus && !connected -> "小瓶からすするアニメーションをおためし"
                     demo -> "青い子とピンクの子、どっちが勝つかな？"
                     !connected -> "USB-Cで2台のスマホをつないでね"
                     side.currentMa != null -> "実際のバッテリー電流  ${side.currentMa.signed()} mA"
