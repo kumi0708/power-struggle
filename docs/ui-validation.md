@@ -1,5 +1,35 @@
 # Chibi UI validation — 2026-10-05
 
+## Alternate viewing mode — v0.4
+
+The mode selector adds a self-running adult succubus sipping battery energy through a
+straw. Four expression/sipping drawings combine with continuous head/hand, hair, wing and
+breathing movement. Planted-foot pivots keep the poses aligned. Runtime source rectangles
+include the full lower-left wing and exclude its tip from the adjacent lower-right pose.
+The original 1143 × 1376 generated PNG is preserved, with alpha ranging from 0 to 255.
+
+API 36 emulator checks with the Apple M1/Metal host GPU verified:
+
+- The disconnected mode shows live battery readings and its own preview button.
+- The labeled preview runs without input, keeps sample battery values stable, and has no
+  tug button. Tapping the illustration does not perform a game tap.
+- Switching to tug restores the original tap controls, and taps still change the advantage.
+- Selecting succubus persists across process restarts. Android Back returns to tug and saves
+  that choice. Exiting the preview restores the live battery display.
+- The draining preview labels the opposite recipient; particles reverse accordingly.
+- Both opposing halves show the selected mode. Either selector updates both halves.
+- No fatal app exceptions were logged. Character and UI screenshots were visually checked.
+- A native 720 × 1600 recording of approximately nine seconds contains uninterrupted
+  animation without tapping (501 encoded frames, about 56 recorded frames per second).
+
+`assembleDebug lintDebug --max-workers=2 --no-daemon` succeeded with no errors. The three
+remaining lint warnings are the existing SDK/orientation warnings documented below.
+The APK and recording are `output/PowerStruggle-succubus-v0.4-debug.apk` and
+`output/PowerStruggle-succubus-v0.4.mp4`.
+
+The new renderer and selector do not request USB power swaps or send game taps. Connected
+visuals use the existing battery state. Actual USB-C transfer still needs two physical phones.
+
 ## Animation update — v0.3
 
 The scene now uses separately registered character sprites: four pull poses for each girl,

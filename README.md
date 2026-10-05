@@ -19,6 +19,13 @@ percentage and charging status in connected play still come from the device's ba
   In two-phone play, the referee is the blue girl and the player is the pink girl; each device
   mirrors the scene as needed so its own girl matches the local tug meter.
 - **接続の詳細** contains Shizuku setup instructions and connection diagnostics.
+- Choose **サキュバス ♡** for an alternate viewing mode: an adult fantasy character
+  continuously sips glowing battery energy through a straw, with four expression poses,
+  breathing and animated hair/wings. No tapping is needed. **チューチューを眺める** starts
+  a clearly labeled local preview; connected play shows the actual direction of power flow.
+  This visual mode does not send game taps or request automatic power swaps. Switch back to
+  **綱引き** to resume tapping. The selected visual mode is remembered across app restarts
+  and shared by both sides in one-phone mode.
 - The application ID is `com.kumi0708.powerstruggle`, so this fork can coexist with the original.
 
 The approved artwork and its generation prompt are in [`docs/art`](docs/art). The runtime
@@ -26,11 +33,19 @@ atlases are `tug_emotes_atlas.png` and `tug_pink_pull_atlas.png` in
 `app/src/main/res/drawable-nodpi/`. Their source rectangles, planted-foot pivots and hand grips
 are registered in `TugAnimation.kt`; the generated PNGs are preserved intact.
 See [`the animation prompts`](docs/art/tug-animation-prompts.md) for the artwork instructions.
+The alternate-mode artwork is `succubus_sip_atlas.png`; its generation instructions are in
+[`the succubus prompt`](docs/art/succubus-sip.prompt.md).
 
 <p align="center">
   <img src="docs/chibi-waiting.png" width="230" alt="Chibi girls on the connection screen">
   <img src="docs/chibi-demo.png" width="230" alt="Local preview after tapping to pull the rope">
   <img src="docs/chibi-split.png" width="230" alt="Face-to-face split-screen preview">
+</p>
+
+<p align="center">
+  <img src="docs/succubus-waiting.png" width="230" alt="Adult succubus visual mode before connecting">
+  <img src="docs/succubus-demo.png" width="230" alt="Hands-free battery energy sipping preview">
+  <img src="docs/succubus-split.png" width="230" alt="Succubus animations on both opposing halves">
 </p>
 
 Build and check with JDK 17+ and the Android SDK:
@@ -43,7 +58,8 @@ The APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
 Real USB power transfer still needs two compatible physical devices and Shizuku on one phone.
 
 Debug builds accept `preview_scene` (`charging`, `draining`, or `split`) and
-`preview_face_up` intent extras for emulator UI checks. Preview scenes are labeled simulations;
+`preview_face_up` intent extras for emulator UI checks. `preview_visual` (`succubus` or `tug`)
+overrides the initial visual mode for captures. Preview scenes are labeled simulations;
 the release build ignores these extras. For example:
 
 ```sh

@@ -45,6 +45,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +57,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -63,6 +67,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import androidx.core.content.edit
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.delay
@@ -72,7 +77,9 @@ private val Blue = Color(0xFF608DE8)
 private val Pink = Color(0xFFE878A6)
 private val Muted = Color(0xFF8D87A3)
 private val Paper = Color(0xFFFFFAFE)
+private val Plum = Color(0xFF9A56B8)
 private enum class Flow { NONE, IN, OUT }
+private enum class VisualMode { TUG, SUCCUBUS }
 
 private data class PlayerSide(
     val flow: Flow,
@@ -100,6 +107,7 @@ class MainActivity : ComponentActivity() {
                 BattleScreen(
                     previewScene = if (BuildConfig.DEBUG) intent.getStringExtra("preview_scene") else null,
                     faceUp = BuildConfig.DEBUG && intent.getBooleanExtra("preview_face_up", false),
+                    previewVisual = if (BuildConfig.DEBUG) intent.getStringExtra("preview_visual") else null,
                 )
             }
         }
@@ -107,16 +115,26 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) {
+private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false, previewVisual: String? = null) {
     val live by Battle.state.collectAsState()
     val sprites = rememberTugSprites()
+    val context = LocalContext.current
+    val preferences = remember(context) { context.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE) }
+    var visualMode by rememberSaveable {
+        mutableStateOf(if ((previewVisual ?: preferences.getString("visual_mode", "tug")) == "succubus")
+            VisualMode.SUCCUBUS else VisualMode.TUG)
+    }
+    val selectVisual: (VisualMode) -> Unit = {
+        visualMode = it
+        preferences.edit { putString("visual_mode", if (it == VisualMode.SUCCUBUS) "succubus" else "tug") }
+    }
     var demo by remember { mutableStateOf(previewScene in setOf("charging", "draining", "split")) }
     var demoRope by remember { mutableFloatStateOf(if (previewScene == "draining") -0.65f else 0.45f) }
     var showDetails by remember { mutableStateOf(false) }
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     // The demo changes only local UI state. It never calls the USB tap or power-swap functions.
-    LaunchedEffect(demo) {
-        while (demo) {
+    LaunchedEffect(demo, visualMode) {
+        while (demo && visualMode == VisualMode.TUG) {
             delay(50)
             demoRope = (demoRope * 0.995f - 0.002f).coerceIn(-1f, 1f)
         }
@@ -125,6 +143,7 @@ private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) 
         if (live.mode != Mode.NONE) demo = false
     }
     BackHandler(demo) { demo = false }
+    BackHandler(!demo && visualMode == VisualMode.SUCCUBUS) { selectVisual(VisualMode.TUG) }
     val s = if (demo) live.copy(
         mode = if (previewScene == "split") Mode.ONE_PHONE else Mode.TWO_PHONES,
         rope = demoRope,
@@ -145,7 +164,7 @@ private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) 
     val tapOther: () -> Unit = {
         if (demo) demoRope = (demoRope - 0.09f).coerceAtLeast(-1f) else Battle.tapOther()
     }
-    val startDemo: () -> Unit = { demoRope = 0f; demo = true }
+    val startDemo: () -> Unit = { demoRope = if (visualMode == VisualMode.SUCCUBUS) 0.65f else 0f; demo = true }
     val rope = if (s.mode == Mode.NONE) 0f else s.rope
     Box(Modifier.fillMaxSize().background(Paper)) {
         if (s.mode == Mode.ONE_PHONE) {
@@ -153,6 +172,7 @@ private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) 
                 PlayerView(
                     PlayerSide(myFlow, rope, s.batteryLevel, s.peerBatteryLevel, s.currentMa),
                     sprites = sprites,
+                    visualMode = visualMode, onVisualMode = selectVisual,
                     connected = true, demo = demo, compact = true, onTap = tapMe,
                     bottomInset = statusInset,
                     modifier = Modifier.weight(1f).rotate(180f),
@@ -163,6 +183,7 @@ private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) 
                     PlayerSide(otherFlow, -rope, s.peerBatteryLevel, s.batteryLevel, null,
                         label = s.partnerName ?: "相手のスマホ", pinkPlayer = true),
                     sprites = sprites,
+                    visualMode = visualMode, onVisualMode = selectVisual,
                     connected = true, demo = demo, compact = true, onTap = tapOther,
                     bottomInset = 0.dp,
                     modifier = Modifier.weight(1f),
@@ -174,6 +195,7 @@ private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) 
                 PlayerSide(myFlow, rope, s.batteryLevel, s.peerBatteryLevel, s.currentMa,
                     pinkPlayer = !demo && s.mode == Mode.TWO_PHONES && s.role == Role.PLAYER),
                 sprites = sprites,
+                visualMode = visualMode, onVisualMode = selectVisual,
                 connected = s.mode != Mode.NONE, demo = demo, compact = false, onTap = tapMe,
                 bottomInset = statusInset,
                 modifier = Modifier.fillMaxSize().rotate(if (faceUp) 0f else 180f),
@@ -207,6 +229,8 @@ private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) 
 private fun PlayerView(
     side: PlayerSide,
     sprites: TugSprites,
+    visualMode: VisualMode,
+    onVisualMode: (VisualMode) -> Unit,
     connected: Boolean,
     demo: Boolean,
     compact: Boolean,
@@ -217,7 +241,8 @@ private fun PlayerView(
     onExitDemo: (() -> Unit)? = null,
     onDetails: (() -> Unit)? = null,
 ) {
-    val playerColor = if (side.pinkPlayer) Pink else Blue
+    val succubus = visualMode == VisualMode.SUCCUBUS
+    val playerColor = if (succubus) Plum else if (side.pinkPlayer) Pink else Blue
     val accent by animateColorAsState(
         if (side.flow == Flow.OUT) Pink else playerColor, label = "powerAccent",
     )
@@ -225,6 +250,11 @@ private fun PlayerView(
     val tap: () -> Unit = { onTap(); tapCount++ }
     val currentTap by rememberUpdatedState(tap)
     val heading = when {
+        succubus && !connected -> "チューチューしてみる？"
+        succubus && demo && side.flow == Flow.OUT -> "相手へ、チューチュー♡"
+        succubus && demo -> "チューチュー、おいしい♡"
+        succubus && side.flow == Flow.IN -> "あなたのスマホへ、チューチュー♡"
+        succubus && side.flow == Flow.OUT -> "今は相手へおすそわけ♡"
         !connected -> "でんりょく綱引き、はじめよう！"
         demo && side.flow == Flow.IN -> "あなたが優勢！"
         demo && side.flow == Flow.OUT -> "負けないで、引っぱろう！"
@@ -233,7 +263,9 @@ private fun PlayerView(
         else -> "電力をうばわれている…"
     }
     BoxWithConstraints(
-        modifier.background(Brush.verticalGradient(listOf(Color(0xFFF0F5FF), Paper, Color(0xFFFFEFF6)))),
+        modifier.background(Brush.verticalGradient(if (succubus)
+            listOf(Color(0xFFEDE1F8), Paper, Color(0xFFFFE6F2))
+        else listOf(Color(0xFFF0F5FF), Paper, Color(0xFFFFEFF6)))),
     ) {
         val short = compact || maxHeight < 580.dp
         Column(
@@ -242,11 +274,13 @@ private fun PlayerView(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (!short) {
-                Text("POWER STRUGGLE", color = Ink, fontWeight = FontWeight.Black,
-                    fontSize = 25.sp, letterSpacing = 2.sp)
-                Text("ふたりで、でんりょく綱引き。", color = Muted, fontSize = 13.sp,
+                Text(if (succubus) "サキュバスの充電タイム" else "POWER STRUGGLE", color = Ink, fontWeight = FontWeight.Black,
+                    fontSize = if (succubus) 23.sp else 25.sp, letterSpacing = if (succubus) 0.sp else 2.sp)
+                Text(if (succubus) "チューチュー、でんりょくいただき♡" else "ふたりで、でんりょく綱引き。", color = Muted, fontSize = 13.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
             }
+            VisualModeSelector(visualMode, onVisualMode, short)
+            Spacer(Modifier.height(if (short) 5.dp else 12.dp))
             if (demo) {
                 Text("おためし · 電力移動なし · 電池残量はサンプル", color = Muted,
                     fontSize = if (short) 9.sp else 11.sp, textAlign = TextAlign.Center,
@@ -261,6 +295,8 @@ private fun PlayerView(
                 fontSize = if (short) 16.sp else 21.sp, textAlign = TextAlign.Center)
             Text(
                 when {
+                    succubus && demo -> "操作なしで、ずっとチューチュー♡"
+                    succubus && !connected -> "専用アニメーションをおためしできるよ"
                     demo -> "青い子とピンクの子、どっちが勝つかな？"
                     !connected -> "USB-Cで2台のスマホをつないでね"
                     side.currentMa != null -> "実際のバッテリー電流  ${side.currentMa.signed()} mA"
@@ -271,11 +307,11 @@ private fun PlayerView(
             )
             Box(
                 Modifier.weight(1f).fillMaxWidth()
-                    .pointerInput(connected) {
+                    .pointerInput(connected, succubus) {
                         awaitPointerEventScope {
                             while (true) {
                                 awaitPointerEvent().changes.forEach {
-                                    if (connected && it.changedToDown()) currentTap()
+                                    if (connected && !succubus && it.changedToDown()) currentTap()
                                 }
                             }
                         }
@@ -283,7 +319,13 @@ private fun PlayerView(
                 contentAlignment = Alignment.Center,
             ) {
                 ArenaSparkles(accent, Modifier.fillMaxSize())
-                ChibiArena(
+                if (succubus) {
+                    SuccubusArena(
+                        energized = connected && (demo || side.flow != Flow.NONE),
+                        energyToPlayer = side.flow != Flow.OUT,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else ChibiArena(
                     sprites = sprites,
                     rope = side.rope,
                     pinkPlayer = side.pinkPlayer,
@@ -294,26 +336,54 @@ private fun PlayerView(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
-            TugMeter(side.rope, playerColor, short)
+            if (succubus) {
+                Text(if (connected) "自動でチューチュー中 ♡" else "小悪魔と、ひと息。", color = Plum,
+                    fontWeight = FontWeight.Bold, fontSize = if (short) 12.sp else 16.sp,
+                    modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.8f))
+                        .fillMaxWidth().padding(if (short) 8.dp else 14.dp), textAlign = TextAlign.Center)
+            } else TugMeter(side.rope, playerColor, short)
             Spacer(Modifier.height(if (short) 6.dp else 14.dp))
-            Button(
+            if (!succubus || !connected) Button(
                 onClick = { if (connected) tap() else onDemo?.invoke() },
                 enabled = connected || onDemo != null,
                 colors = ButtonDefaults.buttonColors(containerColor = playerColor, contentColor = Color.White),
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.fillMaxWidth().height(if (short) 46.dp else 60.dp),
             ) {
-                Text(if (connected) "タップで引っぱる！" else "おためしで遊ぶ", fontWeight = FontWeight.ExtraBold,
+                Text(if (succubus) "チューチューを眺める" else if (connected) "タップで引っぱる！" else "おためしで遊ぶ", fontWeight = FontWeight.ExtraBold,
                     fontSize = if (short) 17.sp else 20.sp)
             }
             if (!short) {
-                Text(if (connected) "イラストをタップしても引っぱれるよ" else "本番は片方のスマホでShizukuを起動してね",
+                Text(if (succubus && connected) "電力の向きはスマホの充電状態に合わせて表示"
+                    else if (connected) "イラストをタップしても引っぱれるよ" else "本番は片方のスマホでShizukuを起動してね",
                     color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp), textAlign = TextAlign.Center)
                 if (demo && onExitDemo != null) {
                     TextButton(onClick = onExitDemo) { Text("接続画面に戻る", color = Muted, fontSize = 12.sp) }
                 } else if (onDetails != null) {
                     TextButton(onClick = onDetails) { Text("接続の詳細", color = Muted, fontSize = 12.sp) }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VisualModeSelector(mode: VisualMode, onSelect: (VisualMode) -> Unit, compact: Boolean) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.7f)),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        VisualMode.entries.forEach { option ->
+            val selected = option == mode
+            val color = if (option == VisualMode.SUCCUBUS) Plum else Blue
+            TextButton(onClick = { onSelect(option) },
+                modifier = Modifier.weight(1f).height(if (compact) 34.dp else 42.dp)
+                    .semantics { this.selected = selected },
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.textButtonColors(
+                    containerColor = if (selected) color else Color.Transparent,
+                    contentColor = if (selected) Color.White else Muted),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                Text(if (option == VisualMode.TUG) "綱引き" else "サキュバス ♡",
+                    fontSize = if (compact) 11.sp else 13.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

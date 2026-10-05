@@ -23,7 +23,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.core.graphics.withTranslation
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import kotlin.math.PI
@@ -106,7 +107,7 @@ private val PinkShadow = Color(0xFFE687AB)
 
 @Composable
 internal fun rememberTugSprites(): TugSprites {
-    val resources = LocalContext.current.resources
+    val resources = LocalResources.current
     return remember(resources) { TugSprites(resources) }
 }
 
@@ -255,11 +256,10 @@ private fun DrawScope.drawCharacter(frame: TugSprites.Frame, origin: Offset, pos
     }
     drawIntoCanvas { canvas ->
         val native = canvas.nativeCanvas
-        val saved = native.save()
-        native.translate(origin.x, origin.y)
-        native.scale(frame.scale, frame.scale)
-        native.drawBitmapMesh(frame.bitmap, MESH_COLUMNS, MESH_ROWS, vertices, 0, null, 0, paint)
-        native.restoreToCount(saved)
+        native.withTranslation(origin.x, origin.y) {
+            scale(frame.scale, frame.scale)
+            drawBitmapMesh(frame.bitmap, MESH_COLUMNS, MESH_ROWS, vertices, 0, null, 0, paint)
+        }
     }
 }
 
