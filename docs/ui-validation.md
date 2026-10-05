@@ -1,5 +1,22 @@
 # Chibi UI validation — 2026-10-05
 
+## Relaxed costume — v0.6
+
+The adult character's purple dress now has an open collar showing the neck/collarbones and
+small shoulder cutouts. The four expressions, USB-C plugs, cable and pose registration are
+preserved. The new 1143 × 1376 transparent PNG is kept intact; its alpha ranges from 0 to 255.
+The previous USB artwork is archived at `docs/art/succubus-usb-sip-v0.5.png`.
+
+`assembleDebug lintDebug --max-workers=2 --no-daemon` succeeded with no errors and the same
+three SDK/orientation warnings. API 36 host-GPU captures verified the continuous sipping
+loop, the live-battery waiting layout, and both opposing halves. The sample-battery preview
+label remains visible; no fatal app exceptions were logged. The updated costume, feet,
+phone connection and cable were visually checked. The artwork update does not alter game
+input or USB power control.
+
+Deliverables: `output/PowerStruggle-usb-sip-v0.6-debug.apk` and
+`output/PowerStruggle-usb-sip-v0.6.mp4`. Two-device physical USB transfer remains untested.
+
 ## USB-C sipping artwork — v0.5
 
 The succubus now holds a recognizable metal USB-C connector at her mouth. A thick USB

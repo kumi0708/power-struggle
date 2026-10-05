@@ -33,9 +33,10 @@ atlases are `tug_emotes_atlas.png` and `tug_pink_pull_atlas.png` in
 `app/src/main/res/drawable-nodpi/`. Their source rectangles, planted-foot pivots and hand grips
 are registered in `TugAnimation.kt`; the generated PNGs are preserved intact.
 See [`the animation prompts`](docs/art/tug-animation-prompts.md) for the artwork instructions.
-The alternate-mode artwork is `succubus_usb_sip_atlas.png`. A thick charging cable connects
+The alternate-mode artwork is `succubus_usb_sip_atlas_v2.png`. The purple dress has a relaxed
+open collar and small shoulder openings. A thick charging cable connects
 the animated USB-C tip near her lips to a phone with a visible USB port. Its generation
-instructions are in [`the USB-C succubus prompt`](docs/art/succubus-usb-sip.prompt.md).
+instructions are in [`the current costume edit prompt`](docs/art/succubus-usb-sip-v2.prompt.md).
 
 <p align="center">
   <img src="docs/chibi-waiting.png" width="230" alt="Chibi girls on the connection screen">

@@ -55,7 +55,7 @@ private class SuccubusSprites(resources: Resources) {
     val frames: List<Frame>
 
     init {
-        val atlas = checkNotNull(BitmapFactory.decodeResource(resources, R.drawable.succubus_usb_sip_atlas))
+        val atlas = checkNotNull(BitmapFactory.decodeResource(resources, R.drawable.succubus_usb_sip_atlas_v2))
         val sx = atlas.width / 1143f
         val sy = atlas.height / 1376f
         val anchors = listOf(

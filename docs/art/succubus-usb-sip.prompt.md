@@ -2,7 +2,9 @@
 
 Mode: built-in `image_gen` (imagegen skill), edit, transparent background.
 Reference: archived `docs/art/succubus-sip-v0.4.png`.
-Runtime asset: `app/src/main/res/drawable-nodpi/succubus_usb_sip_atlas.png`.
+Original runtime asset (v0.5): `app/src/main/res/drawable-nodpi/succubus_usb_sip_atlas.png`.
+Archived source: `docs/art/succubus-usb-sip-v0.5.png`. The current costume revision is
+documented in `succubus-usb-sip-v2.prompt.md`.
 The accepted 1143 × 1376 RGBA PNG is copied intact, with alpha ranging from 0 to 255.
 The costume is a covered purple dress. Four expressions show the adult fantasy character
 sipping glowing electricity from a recognizable USB-C connector, with a thick USB cable.
