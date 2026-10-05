@@ -20,7 +20,7 @@ private const val TAG = "PowerStruggle"
 const val ACCESSORY_MANUFACTURER = "Power Struggle"
 const val ACCESSORY_MODEL = "Referee"
 // Offered to the other phone when it does not have the app installed.
-private const val ACCESSORY_URI = "https://ideas.skip.work/u/kenkawakenkenke/projects/power-struggle"
+private const val ACCESSORY_URI = "https://github.com/kumi0708/power-struggle"
 
 private const val GOOGLE_VID = 0x18D1
 private const val APPLE_VID = 0x05AC
