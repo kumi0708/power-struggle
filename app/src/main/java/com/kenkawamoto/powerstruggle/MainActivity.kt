@@ -3,455 +3,399 @@ package com.kenkawamoto.powerstruggle
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import kotlin.math.abs
-import kotlin.math.min
-import kotlin.math.sin
-import kotlin.random.Random
+import kotlinx.coroutines.delay
 
-/**
- * Two phones: they lie on the table bottom-to-bottom, joined by the cable, with each player sitting
- * at the far end of their phone. The player therefore sees the screen upside down, so the UI is
- * rotated 180°: "up" on screen points at the cable and the opponent.
- *
- * One phone: the phone lies between the two players and the screen is split. Each half is drawn
- * like a two-phone screen whose "cable edge" is the middle line.
- */
-private const val FACE_OFF = true
-
-private val ChargeIn = Color(0xFF3DDC84)
-private val ChargeOut = Color(0xFFFF7A3D)
-private val Idle = Color(0xFF9AA0A6)
-
+private val Ink = Color(0xFF494562)
+private val Blue = Color(0xFF608DE8)
+private val Pink = Color(0xFFE878A6)
+private val Muted = Color(0xFF8D87A3)
+private val Paper = Color(0xFFFFFAFE)
 private enum class Flow { NONE, IN, OUT }
 
-/** What one player's view shows. [rope] is from this player's side: +1 at their battery. */
-private class PlayerSide(
+private data class PlayerSide(
     val flow: Flow,
     val rope: Float,
     val batteryLevel: Int?,
+    val peerBatteryLevel: Int?,
     val currentMa: Int?,
-    val label: String? = null,
+    val label: String = "あなたのスマホ",
+    val pinkPlayer: Boolean = false,
 )
-
-private class Ripple(val position: Offset, val startedAt: Float)
-
-private class Particle(val lane: Float, val phase: Float, val size: Float)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT))
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.getInsetsController(window, window.decorView).apply {
-            // Keep the status bar: its charging icon is proof that power really moved.
+            // The system charging icon remains visible as independent proof of actual power flow.
             hide(WindowInsetsCompat.Type.navigationBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         Battle.start(this)
-        setContent { BattleScreen() }
+        setContent {
+            MaterialTheme(colorScheme = lightColorScheme(primary = Blue, secondary = Pink, surface = Paper)) {
+                BattleScreen(
+                    previewScene = if (BuildConfig.DEBUG) intent.getStringExtra("preview_scene") else null,
+                    faceUp = BuildConfig.DEBUG && intent.getBooleanExtra("preview_face_up", false),
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun BattleScreen() {
-    val s by Battle.state.collectAsState()
-    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+private fun BattleScreen(previewScene: String? = null, faceUp: Boolean = false) {
+    val live by Battle.state.collectAsState()
+    var demo by remember { mutableStateOf(previewScene in setOf("charging", "draining", "split")) }
+    var demoRope by remember { mutableFloatStateOf(if (previewScene == "draining") -0.65f else 0.45f) }
+    var showDetails by remember { mutableStateOf(false) }
+    val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    // The demo changes only local UI state. It never calls the USB tap or power-swap functions.
+    LaunchedEffect(demo) {
+        while (demo) {
+            delay(50)
+            demoRope = (demoRope * 0.995f - 0.002f).coerceIn(-1f, 1f)
+        }
+    }
+    LaunchedEffect(live.mode) {
+        if (live.mode != Mode.NONE) demo = false
+    }
+    BackHandler(demo) { demo = false }
+    val s = if (demo) live.copy(
+        mode = if (previewScene == "split") Mode.ONE_PHONE else Mode.TWO_PHONES,
+        rope = demoRope,
+        batteryLevel = 68,
+        peerBatteryLevel = 52,
+        currentMa = 0,
+    ) else live
     val myFlow = when {
-        s.mode == Mode.NONE -> Flow.NONE
+        demo && s.rope > Battle.SWAP_THRESHOLD -> Flow.IN
+        demo && s.rope < -Battle.SWAP_THRESHOLD -> Flow.OUT
+        demo || s.mode == Mode.NONE -> Flow.NONE
         s.charging -> Flow.IN
         else -> Flow.OUT
     }
+    val tapMe: () -> Unit = {
+        if (demo) demoRope = (demoRope + 0.09f).coerceAtMost(1f) else Battle.tap()
+    }
+    val tapOther: () -> Unit = {
+        if (demo) demoRope = (demoRope - 0.09f).coerceAtLeast(-1f) else Battle.tapOther()
+    }
+    val startDemo: () -> Unit = { demoRope = 0f; demo = true }
     val rope = if (s.mode == Mode.NONE) 0f else s.rope
-
-    Box(Modifier.fillMaxSize().background(Color(0xFF0D0E11))) {
+    Box(Modifier.fillMaxSize().background(Paper)) {
         if (s.mode == Mode.ONE_PHONE) {
-            val otherFlow = when (myFlow) {
-                Flow.IN -> Flow.OUT
-                Flow.OUT -> Flow.IN
-                Flow.NONE -> Flow.NONE
-            }
             Column(Modifier.fillMaxSize()) {
-                // This phone's player sits at the top; the status bar is along their near edge.
                 PlayerView(
-                    PlayerSide(myFlow, rope, s.batteryLevel, s.currentMa, label = "THIS PHONE"),
-                    onTap = Battle::tap,
-                    streamFraction = 0.3f,
-                    compact = true,
-                    bottomInset = statusBarHeight,
+                    PlayerSide(myFlow, rope, s.batteryLevel, s.peerBatteryLevel, s.currentMa),
+                    connected = true, demo = demo, compact = true, onTap = tapMe,
+                    bottomInset = statusInset,
                     modifier = Modifier.weight(1f).rotate(180f),
                 )
-                // The other phone hangs off the cable at the bottom, in front of its player.
+                Box(Modifier.fillMaxWidth().height(2.dp).background(Pink.copy(alpha = 0.3f)))
+                val otherFlow = when (myFlow) { Flow.IN -> Flow.OUT; Flow.OUT -> Flow.IN; Flow.NONE -> Flow.NONE }
                 PlayerView(
-                    PlayerSide(otherFlow, -rope, batteryLevel = null, currentMa = null, label = s.partnerName?.uppercase() ?: "OTHER PHONE"),
-                    onTap = Battle::tapOther,
-                    streamFraction = 0.3f,
-                    compact = true,
+                    PlayerSide(otherFlow, -rope, s.peerBatteryLevel, s.batteryLevel, null,
+                        label = s.partnerName ?: "相手のスマホ", pinkPlayer = true),
+                    connected = true, demo = demo, compact = true, onTap = tapOther,
                     bottomInset = 0.dp,
                     modifier = Modifier.weight(1f),
                 )
             }
         } else {
+            // Bottom-to-bottom phones: preserve the upstream face-to-face orientation.
             PlayerView(
-                PlayerSide(myFlow, rope, s.batteryLevel, s.currentMa),
-                onTap = Battle::tap,
-                streamFraction = 0.42f,
-                compact = false,
-                bottomInset = statusBarHeight,
-                modifier = Modifier.fillMaxSize().rotate(if (FACE_OFF) 180f else 0f),
-                footer = { DebugFooter(s, Modifier.padding(top = 16.dp)) },
+                PlayerSide(myFlow, rope, s.batteryLevel, s.peerBatteryLevel, s.currentMa),
+                connected = s.mode != Mode.NONE, demo = demo, compact = false, onTap = tapMe,
+                bottomInset = statusInset,
+                modifier = Modifier.fillMaxSize().rotate(if (faceUp) 0f else 180f),
+                onDemo = startDemo, onExitDemo = { demo = false }, onDetails = { showDetails = true },
+            )
+        }
+        if (showDetails) {
+            AlertDialog(
+                modifier = Modifier.rotate(if (faceUp) 0f else 180f),
+                onDismissRequest = { showDetails = false },
+                title = { Text("接続の詳細") },
+                text = {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        Text("USB-Cケーブルで2台を接続し、片方のAndroidでShizukuを起動してください。権限の許可後、アプリを開き直してください。", color = Ink)
+                        Spacer(Modifier.height(16.dp))
+                        Text("${live.role} · ${live.setup}\nlink ${live.rxPerSec}/s · gap ${live.maxGapMs}ms\ndrops ${live.linkDrops} · swaps ${live.swaps}",
+                            fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        live.log.takeLast(8).forEach { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
+                        if (live.role == Role.REFEREE && live.mode != Mode.NONE) {
+                            TextButton(onClick = Battle::manualSwap) { Text("電力の向きを切り替える") }
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { showDetails = false }) { Text("閉じる") } },
             )
         }
     }
 }
 
-/** One player's view: energy stream from the cable edge (top) to their battery, and the knot. */
 @Composable
 private fun PlayerView(
     side: PlayerSide,
-    onTap: () -> Unit,
-    streamFraction: Float,
+    connected: Boolean,
+    demo: Boolean,
     compact: Boolean,
+    onTap: () -> Unit,
     bottomInset: Dp,
     modifier: Modifier = Modifier,
-    footer: (@Composable () -> Unit)? = null,
+    onDemo: (() -> Unit)? = null,
+    onExitDemo: (() -> Unit)? = null,
+    onDetails: (() -> Unit)? = null,
 ) {
-    val flow = side.flow
+    val playerColor = if (side.pinkPlayer) Pink else Blue
     val accent by animateColorAsState(
-        when (flow) {
-            Flow.IN -> ChargeIn
-            Flow.OUT -> ChargeOut
-            Flow.NONE -> Idle
-        },
-        label = "accent",
+        if (side.flow == Flow.OUT) Pink else playerColor, label = "powerAccent",
     )
-    val startNanos = remember { System.nanoTime() }
-    val now = remember { { (System.nanoTime() - startNanos) / 1e9f } }
-    val ripples = remember { mutableStateListOf<Ripple>() }
-    var lastTapAt by remember { mutableFloatStateOf(-10f) }
-
+    var tapPulse by remember { mutableStateOf(false) }
+    var tapCount by remember { mutableIntStateOf(0) }
+    val pull by animateFloatAsState(side.rope, spring(stiffness = Spring.StiffnessLow), label = "ropePull")
+    val bounce by animateFloatAsState(if (tapPulse) 1.035f else 1f,
+        spring(dampingRatio = Spring.DampingRatioMediumBouncy), label = "tapBounce")
+    val tap: () -> Unit = { onTap(); tapCount++; tapPulse = true }
+    val currentTap by rememberUpdatedState(tap)
+    LaunchedEffect(tapCount) { if (tapPulse) { delay(90); tapPulse = false } }
+    val heading = when {
+        !connected -> "でんりょく綱引き、はじめよう！"
+        demo && side.flow == Flow.IN -> "あなたが優勢！"
+        demo && side.flow == Flow.OUT -> "負けないで、引っぱろう！"
+        demo -> "勝負はこれから！"
+        side.flow == Flow.IN -> "電力をうばっている！"
+        else -> "電力をうばわれている…"
+    }
     BoxWithConstraints(
-        modifier.pointerInput(Unit) {
-            awaitPointerEventScope {
-                while (true) {
-                    awaitPointerEvent().changes.forEach {
-                        if (it.changedToDown()) {
-                            onTap()
-                            lastTapAt = now()
-                            ripples.add(Ripple(it.position, lastTapAt))
-                            if (ripples.size > 12) ripples.removeAt(0)
-                        }
-                    }
-                }
-            }
-        },
+        modifier.background(Brush.verticalGradient(listOf(Color(0xFFF0F5FF), Paper, Color(0xFFFFEFF6)))),
     ) {
-        val streamEnd = maxHeight * streamFraction
-        val batteryHeight = if (compact) minOf(150.dp, maxHeight * 0.34f) else 200.dp
-        EnergyCanvas(
-            flow = flow,
-            rope = side.rope,
-            color = accent,
-            streamFraction = streamFraction,
-            // Split screen shows the knot in the other half already.
-            showOffscreenKnot = !compact,
-            ripples = ripples,
-            lastTapAt = lastTapAt,
-            now = now,
-            modifier = Modifier.fillMaxSize(),
-        )
-        BatteryGauge(
-            side.batteryLevel, flow, accent,
-            Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = streamEnd)
-                .size(width = batteryHeight * 0.6f, height = batteryHeight),
-        )
+        val short = compact || maxHeight < 580.dp
         Column(
-            Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = streamEnd + batteryHeight + 8.dp),
+            Modifier.fillMaxSize().padding(horizontal = if (short) 16.dp else 24.dp)
+                .padding(top = if (short) 10.dp else 24.dp, bottom = bottomInset + 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            val caption = listOfNotNull(side.label, side.batteryLevel?.let { "$it%" }).joinToString("  ·  ")
-            if (caption.isNotEmpty()) {
-                Text(caption, color = Color.White, fontSize = if (compact) 16.sp else 22.sp, fontWeight = FontWeight.Bold)
+            if (!short) {
+                Text("POWER STRUGGLE", color = Ink, fontWeight = FontWeight.Black,
+                    fontSize = 25.sp, letterSpacing = 2.sp)
+                Text("ふたりで、でんりょく綱引き。", color = Muted, fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
             }
+            if (demo) {
+                Text("おためし · 電力移動なし · 電池残量はサンプル", color = Muted,
+                    fontSize = if (short) 9.sp else 11.sp, textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 6.dp))
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                BatteryBadge(side.label, side.batteryLevel, playerColor, Modifier.weight(1f))
+                BatteryBadge("相手", side.peerBatteryLevel, if (side.pinkPlayer) Blue else Pink, Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(if (short) 6.dp else 14.dp))
+            Text(heading, color = accent, fontWeight = FontWeight.ExtraBold,
+                fontSize = if (short) 16.sp else 21.sp, textAlign = TextAlign.Center)
             Text(
-                when (flow) {
-                    Flow.NONE -> "Connect the other phone"
-                    Flow.IN -> "CHARGING"
-                    Flow.OUT -> "DRAINING"
+                when {
+                    demo -> "青い子とピンクの子、どっちが勝つかな？"
+                    !connected -> "USB-Cで2台のスマホをつないでね"
+                    side.currentMa != null -> "実際のバッテリー電流  ${side.currentMa.signed()} mA"
+                    else -> "こちら側をタップして電力を取り返そう"
                 },
-                color = accent,
-                fontSize = if (compact) 24.sp else 30.sp,
-                fontWeight = FontWeight.Black,
+                color = Muted, fontSize = if (short) 10.sp else 12.sp,
+                modifier = Modifier.padding(top = 4.dp), textAlign = TextAlign.Center,
             )
-            if (flow != Flow.NONE && side.currentMa != null) {
-                Text("${side.currentMa.signed()} mA", color = accent.copy(alpha = 0.8f), fontSize = 16.sp)
-            }
-        }
-        Column(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 12.dp + bottomInset),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                when (flow) {
-                    Flow.NONE -> ""
-                    Flow.IN -> "keep tapping to hold it"
-                    Flow.OUT -> "TAP TO STEAL CHARGE!"
-                },
-                color = Color.White.copy(alpha = if (flow == Flow.OUT) 0.9f else 0.4f),
-                fontSize = if (flow == Flow.OUT) 22.sp else 16.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            footer?.invoke()
-        }
-    }
-}
-
-/**
- * The energy stream runs from the cable edge (y = 0) to the battery terminal. Particles flow in
- * the real direction of charge; the knot rides on the stream at the tug position. A knot on the
- * other phone lies off the top edge, which lines up with where it is drawn on that phone.
- */
-@Composable
-private fun EnergyCanvas(
-    flow: Flow,
-    rope: Float,
-    color: Color,
-    streamFraction: Float,
-    showOffscreenKnot: Boolean,
-    ripples: List<Ripple>,
-    lastTapAt: Float,
-    now: () -> Float,
-    modifier: Modifier,
-) {
-    var frame by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(Unit) {
-        while (true) withFrameNanos { frame = it }
-    }
-    val particles = remember { List(80) { Particle(Random.nextFloat(), Random.nextFloat(), Random.nextFloat()) } }
-    // [displayed knot position, time of last frame]; smooths the 20 Hz updates from the referee.
-    val smooth = remember { floatArrayOf(0f, 0f) }
-
-    Canvas(modifier) {
-        frame // Redraw every frame.
-        val t = now()
-        val dt = (t - smooth[1]).coerceIn(0f, 0.1f)
-        smooth[1] = t
-        smooth[0] += (rope - smooth[0]) * min(1f, dt * 12f)
-        val knot = smooth[0]
-
-        val cx = size.width / 2
-        val length = size.height * streamFraction
-        val intensity = abs(knot).coerceIn(0.15f, 1f)
-
-        // Beam.
-        val beamAlpha = if (flow == Flow.NONE) 0.15f else 0.25f + 0.45f * intensity
-        drawLine(color.copy(alpha = beamAlpha * 0.25f), Offset(cx, 0f), Offset(cx, length), strokeWidth = (14 + 22 * intensity).dp.toPx())
-        drawLine(color.copy(alpha = beamAlpha), Offset(cx, 0f), Offset(cx, length), strokeWidth = 3.dp.toPx())
-        drawLine(color.copy(alpha = 0.9f), Offset(cx, 0f), Offset(cx, 32.dp.toPx()), strokeWidth = 12.dp.toPx(), cap = StrokeCap.Round)
-
-        // Swap line: the knot has to pass this for power to come to you.
-        val swapY = Battle.SWAP_THRESHOLD * length
-        listOf(-1f, 1f).forEach { side ->
-            drawLine(
-                Color.White.copy(alpha = 0.35f),
-                Offset(cx + side * 26.dp.toPx(), swapY), Offset(cx + side * 46.dp.toPx(), swapY),
-                strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round,
-            )
-        }
-
-        // Particles.
-        if (flow != Flow.NONE) {
-            // Constant speed so the direction stays readable; only the density follows intensity.
-            val speed = 0.5f
-            val count = (20 + 60 * intensity).toInt()
-            particles.take(count).forEach { p ->
-                val progress = (p.phase + t * speed * (0.75f + 0.5f * p.size)) % 1f
-                val fromCable = if (flow == Flow.IN) progress else 1f - progress
-                val wiggle = sin(t * 3f + p.phase * 20f) * 5.dp.toPx()
-                val x = cx + (p.lane - 0.5f) * size.width * (0.08f + 0.35f * fromCable) + wiggle
-                val pos = Offset(x, fromCable * length)
-                val fade = minOf(1f, progress * 5f, (1f - progress) * 5f)
-                val r = (2.5f + 4f * p.size).dp.toPx()
-                drawCircle(color.copy(alpha = 0.18f * fade), r * 2.8f, pos)
-                drawCircle(color.copy(alpha = 0.9f * fade), r, pos)
-            }
-        }
-
-        // Knot.
-        if (knot >= 0f) {
-            val pulse = 1f + 0.35f * kotlin.math.exp(-(t - lastTapAt) * 10f)
-            val pos = Offset(cx, knot * length)
-            drawCircle(Color.White.copy(alpha = 0.15f), 34.dp.toPx() * pulse, pos)
-            drawCircle(Color.White, 15.dp.toPx() * pulse, pos, style = Stroke(4.dp.toPx()))
-            drawCircle(Color.White, 7.dp.toPx(), pos)
-        } else if (showOffscreenKnot) {
-            // Knot is on their phone: glow at the cable edge, brighter the further away it is.
-            drawCircle(Color.White.copy(alpha = 0.08f + 0.2f * -knot), (24 + 50 * -knot).dp.toPx(), Offset(cx, 0f))
-        }
-
-        // Tap ripples.
-        ripples.forEach { ripple ->
-            val age = (t - ripple.startedAt) / 0.45f
-            if (age in 0f..1f) {
-                drawCircle(
-                    Color.White.copy(alpha = 0.5f * (1f - age)),
-                    (12 + 70 * age).dp.toPx(),
-                    ripple.position,
-                    style = Stroke(3.dp.toPx()),
+            Box(
+                Modifier.weight(1f).fillMaxWidth()
+                    .pointerInput(connected) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                awaitPointerEvent().changes.forEach {
+                                    if (connected && it.changedToDown()) currentTap()
+                                }
+                            }
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                ArenaSparkles(accent, Modifier.fillMaxSize())
+                Image(
+                    painterResource(R.drawable.power_tug_girls),
+                    contentDescription = "青いリボンとピンクのリボンの2頭身の女の子が、電力の光るケーブルで綱引きしている",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxWidth().graphicsLayer {
+                        translationX = -pull * 14.dp.toPx()
+                        rotationZ = -pull * 2f
+                        scaleX = if (side.pinkPlayer) -bounce else bounce
+                        scaleY = bounce
+                    },
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun BatteryGauge(level: Int?, flow: Flow, color: Color, modifier: Modifier) {
-    val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
-        initialValue = 1f,
-        targetValue = 0.45f,
-        animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "pulse",
-    )
-    Box(modifier, contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) {
-            val stroke = 6.dp.toPx()
-            val capH = 14.dp.toPx()
-            val capW = size.width * 0.38f
-            // Terminal cap points at the cable.
-            drawRoundRect(
-                Color.White.copy(alpha = 0.8f),
-                topLeft = Offset((size.width - capW) / 2, 0f),
-                size = Size(capW, capH + stroke),
-                cornerRadius = CornerRadius(4.dp.toPx()),
-            )
-            val bodyTop = capH
-            val bodyH = size.height - bodyTop
-            drawRoundRect(
-                Color.White.copy(alpha = 0.8f),
-                topLeft = Offset(stroke / 2, bodyTop + stroke / 2),
-                size = Size(size.width - stroke, bodyH - stroke),
-                cornerRadius = CornerRadius(18.dp.toPx()),
-                style = Stroke(stroke),
-            )
-            val inset = stroke * 2
-            val innerH = bodyH - inset * 2
-            // Unknown level (the other phone without the app): show it half full.
-            val fillH = innerH * (level ?: 50).coerceIn(0, 100) / 100f
-            drawRoundRect(
-                color.copy(alpha = if (flow == Flow.OUT) pulse else 1f),
-                topLeft = Offset(inset, bodyTop + inset + innerH - fillH),
-                size = Size(size.width - inset * 2, fillH),
-                cornerRadius = CornerRadius(10.dp.toPx()),
-            )
-            if (flow == Flow.IN) {
-                drawBolt(Offset(size.width / 2, bodyTop + bodyH / 2), bodyH * 0.6f * (0.92f + 0.08f * pulse))
+            TugMeter(side.rope, playerColor, short)
+            Spacer(Modifier.height(if (short) 6.dp else 14.dp))
+            Button(
+                onClick = { if (connected) tap() else onDemo?.invoke() },
+                enabled = connected || onDemo != null,
+                colors = ButtonDefaults.buttonColors(containerColor = playerColor, contentColor = Color.White),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth().height(if (short) 46.dp else 60.dp),
+            ) {
+                Text(if (connected) "タップで引っぱる！" else "おためしで遊ぶ", fontWeight = FontWeight.ExtraBold,
+                    fontSize = if (short) 17.sp else 20.sp)
+            }
+            if (!short) {
+                Text(if (connected) "イラストをタップしても引っぱれるよ" else "本番は片方のスマホでShizukuを起動してね",
+                    color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp), textAlign = TextAlign.Center)
+                if (demo && onExitDemo != null) {
+                    TextButton(onClick = onExitDemo) { Text("接続画面に戻る", color = Muted, fontSize = 12.sp) }
+                } else if (onDetails != null) {
+                    TextButton(onClick = onDetails) { Text("接続の詳細", color = Muted, fontSize = 12.sp) }
+                }
             }
         }
     }
 }
 
-private fun DrawScope.drawBolt(center: Offset, h: Float) {
-    val w = h * 0.55f
-    val path = Path().apply {
-        moveTo(center.x + w * 0.15f, center.y - h / 2)
-        lineTo(center.x - w / 2, center.y + h * 0.08f)
-        lineTo(center.x - w * 0.02f, center.y + h * 0.08f)
-        lineTo(center.x - w * 0.15f, center.y + h / 2)
-        lineTo(center.x + w / 2, center.y - h * 0.08f)
-        lineTo(center.x + w * 0.02f, center.y - h * 0.08f)
-        close()
+@Composable
+private fun BatteryBadge(label: String, level: Int?, color: Color, modifier: Modifier) {
+    Row(
+        modifier.clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.82f))
+            .border(1.dp, color.copy(alpha = 0.14f), RoundedCornerShape(18.dp)).padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Canvas(Modifier.size(width = 14.dp, height = 21.dp)) {
+            val terminal = 2.dp.toPx()
+            drawRoundRect(color.copy(alpha = 0.18f), topLeft = Offset(0f, terminal),
+                size = androidx.compose.ui.geometry.Size(size.width, size.height - terminal),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()))
+            drawLine(color, Offset(size.width * 0.35f, 0f), Offset(size.width * 0.65f, 0f),
+                strokeWidth = terminal, cap = StrokeCap.Round)
+            val fraction = (level ?: 0).coerceIn(0, 100) / 100f
+            val inset = 2.dp.toPx()
+            val height = (size.height - terminal - inset * 2) * fraction
+            drawRoundRect(color, topLeft = Offset(inset, size.height - inset - height),
+                size = androidx.compose.ui.geometry.Size(size.width - inset * 2, height),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(label, color = Muted, fontSize = 9.sp, maxLines = 1)
+            Text(level?.let { "$it%" } ?: "—", color = color, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+        }
     }
-    drawPath(path, Color(0xFF0D0E11), style = Stroke(5.dp.toPx(), join = StrokeJoin.Round))
-    drawPath(path, Color.White)
 }
 
 @Composable
-private fun DebugFooter(s: BattleState, modifier: Modifier = Modifier) {
-    val peer = when (s.peerCharging) {
-        null -> "?"
-        true -> "charging ${s.peerCurrentMa.signed()} mA, ${s.peerBatteryLevel}%"
-        false -> "draining ${s.peerCurrentMa.signed()} mA, ${s.peerBatteryLevel}%"
-    }
-    Column(modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "${s.role} · ${s.setup} · rope ${"%.2f".format(s.rope)}\n" +
-                    "link ${s.rxPerSec}/s · gap ${s.maxGapMs}ms · drops ${s.linkDrops} · swaps ${s.swaps}\n" +
-                    "peer: $peer",
-                color = Color.White.copy(alpha = 0.35f),
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace,
-                modifier = Modifier.weight(1f),
-            )
-            if (s.role == Role.REFEREE) {
-                TextButton(onClick = Battle::manualSwap) { Text("swap", color = Color.White.copy(alpha = 0.5f)) }
-            }
+private fun TugMeter(rope: Float, color: Color, compact: Boolean) {
+    val position by animateFloatAsState(rope.coerceIn(-1f, 1f), label = "knotPosition")
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.8f))
+        .padding(horizontal = 14.dp, vertical = if (compact) 6.dp else 10.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("あなたへ", color = color, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+            Text("綱の位置", color = Muted, fontSize = 10.sp)
+            Text("相手へ", color = if (color == Pink) Blue else Pink, fontWeight = FontWeight.Bold, fontSize = 10.sp)
         }
-        s.log.lastOrNull()?.let {
-            Text(it, color = Color.White.copy(alpha = 0.3f), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+        Canvas(Modifier.fillMaxWidth().height(24.dp)) {
+            val inset = 9.dp.toPx()
+            val start = inset
+            val end = size.width - inset
+            val middle = size.width / 2
+            val y = size.height / 2
+            val x = start + (1f - position) * 0.5f * (end - start)
+            drawLine(Color(0xFFEDE7F3), Offset(start, y), Offset(end, y), 6.dp.toPx(), StrokeCap.Round)
+            drawLine(color.copy(alpha = 0.45f), Offset(middle, y), Offset(x, y), 6.dp.toPx(), StrokeCap.Round)
+            for (direction in listOf(-1f, 1f)) {
+                val thresholdX = middle + direction * Battle.SWAP_THRESHOLD * (end - start) / 2
+                drawLine(Muted.copy(alpha = 0.45f), Offset(thresholdX, y - 5.dp.toPx()),
+                    Offset(thresholdX, y + 5.dp.toPx()), 1.dp.toPx())
+            }
+            drawCircle(Color(0xFFFFE6A0), 10.dp.toPx(), Offset(x, y))
+            drawCircle(Color(0xFFFFB84D), 6.dp.toPx(), Offset(x, y))
+            drawCircle(Color.White, 2.dp.toPx(), Offset(x - 1.dp.toPx(), y - 2.dp.toPx()))
+        }
+    }
+}
+
+@Composable
+private fun ArenaSparkles(color: Color, modifier: Modifier) {
+    Canvas(modifier) {
+        val stars = listOf(0.1f to 0.23f, 0.86f to 0.16f, 0.18f to 0.77f, 0.92f to 0.73f, 0.52f to 0.12f)
+        stars.forEachIndexed { index, (x, y) ->
+            val center = Offset(size.width * x, size.height * y)
+            val radius = (if (index % 2 == 0) 5 else 3).dp.toPx()
+            drawLine(color.copy(alpha = 0.3f), center - Offset(radius, 0f), center + Offset(radius, 0f),
+                2.dp.toPx(), StrokeCap.Round)
+            drawLine(color.copy(alpha = 0.3f), center - Offset(0f, radius), center + Offset(0f, radius),
+                2.dp.toPx(), StrokeCap.Round)
         }
     }
 }

@@ -1,5 +1,50 @@
 # ⚡️ Power Struggle
 
+## This fork: でんりょく綱引き
+
+This is [kumi0708's fork](https://github.com/kumi0708/power-struggle) of
+[kenkawakenkenke/power-struggle](https://github.com/kenkawakenkenke/power-struggle).
+Two chibi girls pull a glowing energy cable in a pastel Japanese game UI. Taps make the
+illustration bounce, and the tug meter follows the existing USB game state. The battery
+percentage and charging status in connected play still come from the device's battery readings.
+
+- Tap the illustration or **タップで引っぱる！** to pull.
+- Before connecting, choose **おためしで遊ぶ** to try the visuals. This is a local simulation:
+  battery levels are sample values, and taps never trigger USB messages or power swaps.
+  Connecting a real opponent automatically returns to live play.
+- The bottom-to-bottom, face-to-face orientation and the one-phone split mode are preserved.
+- **接続の詳細** contains Shizuku setup instructions and connection diagnostics.
+- The application ID is `com.kumi0708.powerstruggle`, so this fork can coexist with the original.
+
+The approved artwork and its generation prompt are in [`docs/art`](docs/art). The runtime
+PNG is in `app/src/main/res/drawable-nodpi/power_tug_girls.png`.
+
+<p align="center">
+  <img src="docs/chibi-waiting.png" width="230" alt="Chibi girls on the connection screen">
+  <img src="docs/chibi-demo.png" width="230" alt="Local preview after tapping to pull the rope">
+  <img src="docs/chibi-split.png" width="230" alt="Face-to-face split-screen preview">
+</p>
+
+Build and check with JDK 17+ and the Android SDK:
+
+```sh
+./gradlew assembleDebug lintDebug
+```
+
+The APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
+Real USB power transfer still needs two compatible physical devices and Shizuku on one phone.
+
+Debug builds accept `preview_scene` (`charging`, `draining`, or `split`) and
+`preview_face_up` intent extras for emulator UI checks. Preview scenes are labeled simulations;
+the release build ignores these extras. For example:
+
+```sh
+adb shell am start -S -n com.kumi0708.powerstruggle/com.kenkawamoto.powerstruggle.MainActivity \
+  --es preview_scene charging --ez preview_face_up true
+```
+
+## Original project
+
 **A two-player tap battle over USB-C where you physically steal battery power from your opponent.**
 
 Connect two phones with a USB-C cable and tap. Whoever is winning actually gets charged; the loser's battery really drains. For those "We're both at 5% and neither can make it home, but one of us could survive if they take the other's charge" standoffs.
